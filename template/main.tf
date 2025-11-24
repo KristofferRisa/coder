@@ -1,4 +1,3 @@
-
 terraform {
   required_providers {
     coder = {
@@ -9,14 +8,17 @@ terraform {
     }
   }
 }
+
 locals {
   username = data.coder_workspace_owner.me.name
 }
+
 variable "docker_socket" {
   default     = ""
   description = "(Optional) Docker socket URI"
   type        = string
 }
+
 provider "docker" {
   host = var.docker_socket != "" ? var.docker_socket : null
 }
@@ -24,6 +26,7 @@ provider "docker" {
 data "coder_provisioner" "me" {}
 data "coder_workspace" "me" {}
 data "coder_workspace_owner" "me" {}
+
 resource "coder_agent" "main" {
   arch = data.coder_provisioner.me.arch
   os   = "linux"
@@ -31,27 +34,63 @@ resource "coder_agent" "main" {
   startup_script = <<-EOT
     #!/bin/bash
     set -e
+    
     # Prepare user home with default files on first start
     if [ ! -f ~/.init_done ]; then
       cp -rT /etc/skel ~
       touch ~/.init_done
     fi
+    
     # Install tools on first start (cached after that)
     if [ ! -f ~/.tools_installed ]; then
       echo "🔧 Installing development tools (this runs once)..."
       
       sudo apt-get update -qq
       
-      echo "📦 Installing: curl, wget, git, httpie, stow, zsh, build-essential..."
+      echo "📦 Installing base tools..."
       sudo apt-get install -y -qq \
         curl wget git httpie stow zsh build-essential \
-        ca-certificates gnupg lsb-release
+        ca-certificates gnupg lsb-release \
+        software-properties-common apt-transport-https \
+        unzip tar gzip xz-utils \
+        python3 python3-pip \
+        jq ripgrep fd-find bat fzf tmux
       
-      # echo "📦 Installing Neovim 0.11.2..."
-      # wget -q https://github.com/neovim/neovim/releases/download/v0.11.2/nvim-linux64.tar.gz
-      # sudo tar xzf nvim-linux64.tar.gz -C /opt/
-      # sudo ln -sf /opt/nvim-linux64/bin/nvim /usr/local/bin/nvim
-      # rm nvim-linux64.tar.gz
+      # Setup bat and fd symlinks (Debian uses different names)
+      mkdir -p ~/.local/bin
+      ln -sf /usr/bin/batcat ~/.local/bin/bat || true
+      ln -sf /usr/bin/fdfind ~/.local/bin/fd || true
+      
+      echo "📦 Installing Neovim 0.11.2..."
+      wget -q https://github.com/neovim/neovim/releases/download/v0.11.2/nvim-linux64.tar.gz
+      sudo tar xzf nvim-linux64.tar.gz -C /opt/
+      sudo ln -sf /opt/nvim-linux64/bin/nvim /usr/local/bin/nvim
+      rm nvim-linux64.tar.gz
+      echo "✅ Neovim installed"
+      
+      echo "📦 Installing LazyGit..."
+      LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
+      curl -sLo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_$${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
+      tar xf lazygit.tar.gz lazygit
+      sudo install lazygit /usr/local/bin
+      rm lazygit lazygit.tar.gz
+      echo "✅ LazyGit installed"
+      
+      echo "📦 Installing eza (modern ls replacement)..."
+      sudo mkdir -p /etc/apt/keyrings
+      wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
+      echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/gierens.list
+      sudo chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
+      sudo apt-get update -qq
+      sudo apt-get install -y -qq eza
+      echo "✅ eza installed"
+      
+      echo "📦 Installing delta (better git diff)..."
+      DELTA_VERSION=$(curl -s "https://api.github.com/repos/dandavison/delta/releases/latest" | grep -Po '"tag_name": "\K[^"]*')
+      wget -q "https://github.com/dandavison/delta/releases/latest/download/git-delta_$${DELTA_VERSION}_amd64.deb"
+      sudo dpkg -i "git-delta_$${DELTA_VERSION}_amd64.deb" || sudo apt-get install -f -y
+      rm "git-delta_$${DELTA_VERSION}_amd64.deb"
+      echo "✅ delta installed"
       
       echo "📦 Installing GitHub CLI..."
       curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
@@ -61,28 +100,40 @@ resource "coder_agent" "main" {
         sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
       sudo apt-get update -qq
       sudo apt-get install -y -qq gh
+      echo "✅ GitHub CLI installed"
       
       echo "📦 Installing Node.js 20..."
       curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
       sudo apt-get install -y -qq nodejs
+      echo "✅ Node.js installed"
       
-      # echo "📦 Installing OpenCode..."
-      # sudo npm install -g @opencode/cli --silent
+      echo "📦 Installing Claude Code..."
+      npm install -g @anthropic-ai/claude-code --silent
+      echo "✅ Claude Code installed"
+      
+      echo "📦 Installing OpenCode..."
+      npm install -g @opencode/cli --silent
+      echo "✅ OpenCode installed"
+      
+      echo "📦 Installing zoxide (smarter cd)..."
+      curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
+      echo "✅ zoxide installed"
       
       echo "🐚 Setting zsh as default shell..."
       sudo chsh -s /bin/zsh coder || true
       
       touch ~/.tools_installed
-      echo "✅ Tools installed successfully!"
+      echo "✅ All tools installed successfully!"
     else
       echo "✅ Tools already installed, skipping..."
     fi
+    
     # Setup SSH keys (runs every time)
     echo "🔑 Setting up SSH keys..."
     mkdir -p ~/.ssh
     chmod 700 ~/.ssh
-    
     ssh-keyscan -t rsa,ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null || true
+    
     # Configure git
     echo "⚙️  Configuring git..."
     git config --global user.name "${coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)}"
@@ -90,6 +141,12 @@ resource "coder_agent" "main" {
     git config --global init.defaultBranch main
     git config --global pull.rebase false
     git config --global core.editor nvim
+    git config --global core.pager delta
+    git config --global interactive.diffFilter "delta --color-only"
+    git config --global delta.navigate true
+    git config --global delta.light false
+    git config --global merge.conflictstyle diff3
+    git config --global diff.colorMoved default
     
     # Clone dotfiles
     DOTFILES_DIR="$HOME/dotfiles"
@@ -112,17 +169,73 @@ resource "coder_agent" "main" {
     fi
     
     cd "$HOME"
+    
     # Install oh-my-zsh
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
       echo "🎨 Installing oh-my-zsh..."
       sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended || true
       echo "✅ oh-my-zsh installed"
     fi
+    
+    # Install useful zsh plugins
+    ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
+    
+    if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
+      echo "📦 Installing zsh-autosuggestions..."
+      git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM/plugins/zsh-autosuggestions
+    fi
+    
+    if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
+      echo "📦 Installing zsh-syntax-highlighting..."
+      git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
+    fi
+    
+    if [ ! -d "$ZSH_CUSTOM/plugins/fzf-tab" ]; then
+      echo "📦 Installing fzf-tab..."
+      git clone https://github.com/Aloxaf/fzf-tab $ZSH_CUSTOM/plugins/fzf-tab
+    fi
+    
+    # Create config directories
     mkdir -p ~/.config/opencode
+    mkdir -p ~/.config/nvim
+    mkdir -p ~/.config/lazygit
+    
+    # Setup PATH additions
+    echo 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"' >> ~/.zshrc || true
+    
+    # Setup zoxide in zsh if not already done
+    if ! grep -q "zoxide init" ~/.zshrc 2>/dev/null; then
+      echo 'eval "$(zoxide init zsh)"' >> ~/.zshrc
+    fi
+    
     echo ""
     echo "✨ Workspace ready!"
-    echo "🎯 Tools: opencode, gh, curl, wget, httpie, stow, zsh"
-    echo "📁 Dotfiles: ~/dotfiles"
+    echo ""
+    echo "🎯 Installed Tools:"
+    echo "   • Claude Code     - AI pair programming"
+    echo "   • OpenCode        - Code assistance"
+    echo "   • Neovim 0.11.2   - Modern text editor"
+    echo "   • LazyGit         - TUI git client"
+    echo "   • GitHub CLI      - gh commands"
+    echo "   • ripgrep         - Fast search (rg)"
+    echo "   • fzf             - Fuzzy finder"
+    echo "   • bat             - Better cat"
+    echo "   • eza             - Better ls"
+    echo "   • delta           - Better git diff"
+    echo "   • zoxide          - Smarter cd (z)"
+    echo "   • tmux            - Terminal multiplexer"
+    echo "   • jq              - JSON processor"
+    echo ""
+    echo "📁 Locations:"
+    echo "   • Dotfiles: ~/dotfiles"
+    echo "   • Config: ~/.config/"
+    echo ""
+    echo "💡 Quick starts:"
+    echo "   • claude-code     - Start Claude Code"
+    echo "   • opencode        - Start OpenCode"
+    echo "   • nvim            - Start Neovim"
+    echo "   • lazygit         - Start LazyGit"
+    echo "   • gh auth login   - Authenticate GitHub CLI"
     echo ""
   EOT
   
@@ -133,6 +246,7 @@ resource "coder_agent" "main" {
     interval     = 10
     timeout      = 1
   }
+  
   metadata {
     display_name = "RAM Usage"
     key          = "1_ram_usage"
@@ -140,6 +254,7 @@ resource "coder_agent" "main" {
     interval     = 10
     timeout      = 1
   }
+  
   metadata {
     display_name = "Home Disk"
     key          = "3_home_disk"
@@ -147,6 +262,7 @@ resource "coder_agent" "main" {
     interval     = 60
     timeout      = 1
   }
+  
   metadata {
     display_name = "CPU Usage (Host)"
     key          = "4_cpu_usage_host"
@@ -154,6 +270,7 @@ resource "coder_agent" "main" {
     interval     = 10
     timeout      = 1
   }
+  
   metadata {
     display_name = "Memory Usage (Host)"
     key          = "5_mem_usage_host"
@@ -162,6 +279,7 @@ resource "coder_agent" "main" {
     timeout      = 1
   }
 }
+
 module "code-server" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/code-server/coder"
@@ -169,6 +287,7 @@ module "code-server" {
   agent_id = coder_agent.main.id
   order    = 1
 }
+
 resource "docker_volume" "home_volume" {
   name = "coder-${data.coder_workspace.me.id}-home"
   
@@ -193,6 +312,7 @@ resource "docker_volume" "home_volume" {
     value = data.coder_workspace.me.name
   }
 }
+
 resource "docker_container" "workspace" {
   count    = data.coder_workspace.me.start_count
   image    = "codercom/enterprise-base:ubuntu"
