@@ -61,11 +61,12 @@ resource "coder_agent" "main" {
       ln -sf /usr/bin/batcat ~/.local/bin/bat || true
       ln -sf /usr/bin/fdfind ~/.local/bin/fd || true
       
-      echo "📦 Installing Neovim 0.11.2..."
-      wget -q https://github.com/neovim/neovim/releases/download/v0.11.2/nvim-linux64.tar.gz
-      sudo tar xzf nvim-linux64.tar.gz -C /opt/
-      sudo ln -sf /opt/nvim-linux64/bin/nvim /usr/local/bin/nvim
-      rm nvim-linux64.tar.gz
+      echo "📦 Installing Neovim (latest)..."
+      curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
+      sudo rm -rf /opt/nvim-linux-x86_64
+      sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz
+      sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+      rm nvim-linux-x86_64.tar.gz
       echo "✅ Neovim installed"
       
       echo "📦 Installing LazyGit..."
