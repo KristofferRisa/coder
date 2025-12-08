@@ -34,18 +34,21 @@ resource "coder_agent" "main" {
   startup_script = <<-EOT
     #!/bin/bash
     set -e
-    
+
     # Prepare user home with default files on first start
     if [ ! -f ~/.init_done ]; then
       cp -rT /etc/skel ~
       touch ~/.init_done
     fi
-    
+
     # Install tools on first start (cached after that)
     if [ ! -f ~/.tools_installed ]; then
       echo "🔧 Installing development tools (this runs once)..."
-      
-      sudo apt-get update -qq
+      echo "⏳ Please wait 5-10 minutes for initial setup to complete..."
+      echo ""
+
+      echo "📡 Updating package lists..."
+      sudo apt-get update -qq || { echo "❌ apt-get update failed"; exit 1; }
       
       echo "📦 Installing base tools..."
       sudo apt-get install -y -qq \
