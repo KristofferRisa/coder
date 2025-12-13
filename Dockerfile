@@ -72,14 +72,14 @@ RUN curl -fsSL https://bun.sh/install | bash
 ENV BUN_INSTALL="/home/$USERNAME/.bun"
 ENV PATH="$BUN_INSTALL/bin:$PATH"
 
-# Install Bitwarden CLI
-RUN BW_VERSION=$(curl -s https://api.github.com/repos/bitwarden/clients/releases/latest | grep '"tag_name":' | sed -E 's/.*"cli-v([^"]+)".*/\1/') \
-    && wget -q "https://github.com/bitwarden/clients/releases/download/cli-v${BW_VERSION}/bw-linux-${BW_VERSION}.zip" \
-    && unzip -q "bw-linux-${BW_VERSION}.zip" \
-    && mkdir -p ~/.local/bin \
-    && mv bw ~/.local/bin/ \
-    && chmod +x ~/.local/bin/bw \
-    && rm "bw-linux-${BW_VERSION}.zip"
+# # Install Bitwarden CLI
+# RUN BW_VERSION=$(curl -s https://api.github.com/repos/bitwarden/clients/releases/latest | grep '"tag_name":' | sed -E 's/.*"cli-v([^"]+)".*/\1/') \
+#     && wget -q "https://github.com/bitwarden/clients/releases/download/cli-v${BW_VERSION}/bw-linux-${BW_VERSION}.zip" \
+#     && unzip -q "bw-linux-${BW_VERSION}.zip" \
+#     && mkdir -p ~/.local/bin \
+#     && mv bw ~/.local/bin/ \
+#     && chmod +x ~/.local/bin/bw \
+#     && rm "bw-linux-${BW_VERSION}.zip"
 
 # Add local bin to PATH
 ENV PATH="/home/$USERNAME/.local/bin:$PATH"
@@ -90,8 +90,8 @@ RUN git --version \
     && tmux -V \
     && zsh --version \
     && stow --version \
-    && bun --version \
-    && bw --version
+    && bun --version
+    # && bw --version
 
 # Set default shell to zsh
 SHELL ["/bin/zsh", "-c"]
@@ -102,10 +102,6 @@ WORKDIR /home/$USERNAME
 # Expose common ports (optional, adjust as needed)
 # EXPOSE 3000 8080 8000
 
-# Add labels for metadata
-LABEL maintainer="kristofferrisa"
-LABEL description="Coder development environment with pre-installed tools"
-LABEL version="1.0"
 
 # Note: Dotfiles will be cloned and linked at workspace startup via Coder's startup_script
 # This keeps the image generic and allows dotfiles to be updated independently
