@@ -23,8 +23,6 @@ RUN apt-get update && apt-get install -y \
     # Archive tools
     unzip \
     zip \
-    # Editors
-    neovim \
     # Terminal multiplexer
     tmux \
     # Shell
@@ -58,6 +56,14 @@ RUN groupadd --gid $USER_GID $USERNAME \
 # Switch to non-root user for remaining installations
 USER $USERNAME
 WORKDIR /home/$USERNAME
+
+# Install Neovim (latest stable release)
+RUN curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz \
+    && sudo rm -rf /opt/nvim-linux-x86_64 \
+    && sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz \
+    && sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim \
+    && rm nvim-linux-x86_64.tar.gz
+
 
 # Install Oh-My-Zsh (pre-installed for convenience)
 RUN sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
