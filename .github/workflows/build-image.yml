@@ -25,9 +25,7 @@ on:
 
 env:
   REGISTRY_GHCR: ghcr.io
-  # REGISTRY_DOCKERHUB: docker.io
   IMAGE_NAME_GHCR: ghcr.io/kristofferrisa/coder
-  # IMAGE_NAME_DOCKERHUB: kristofferdev/coder
 
 jobs:
   build:
