@@ -1,6 +1,5 @@
 # Dockerfile for Coder Development Environment
 # This image includes all dependencies pre-installed for fast workspace startup
-
 FROM ubuntu:22.04
 
 # Prevent interactive prompts during package installation
@@ -11,27 +10,18 @@ ENV TZ=UTC
 
 # Set versions (can be overridden at build time)
 ARG BUN_VERSION=latest
-ARG BITWARDEN_CLI_VERSION=latest
 
 # Install core dependencies
 RUN apt-get update && apt-get install -y \
-    # Version control
     git \
-    # Network tools
     curl \
     wget \
-    # Archive tools
     unzip \
     zip \
-    # Terminal multiplexer
     tmux \
-    # Shell
     zsh \
-    # Dotfiles management
     stow \
-    # Build essentials (useful for compiling tools)
     build-essential \
-    # Additional utilities
     jq \
     ripgrep \
     fd-find \
@@ -78,14 +68,13 @@ RUN curl -fsSL https://bun.sh/install | bash
 ENV BUN_INSTALL="/home/$USERNAME/.bun"
 ENV PATH="$BUN_INSTALL/bin:$PATH"
 
-# # Install Bitwarden CLI
-# RUN BW_VERSION=$(curl -s https://api.github.com/repos/bitwarden/clients/releases/latest | grep '"tag_name":' | sed -E 's/.*"cli-v([^"]+)".*/\1/') \
-#     && wget -q "https://github.com/bitwarden/clients/releases/download/cli-v${BW_VERSION}/bw-linux-${BW_VERSION}.zip" \
-#     && unzip -q "bw-linux-${BW_VERSION}.zip" \
-#     && mkdir -p ~/.local/bin \
-#     && mv bw ~/.local/bin/ \
-#     && chmod +x ~/.local/bin/bw \
-#     && rm "bw-linux-${BW_VERSION}.zip"
+# Install Node.js LTS (via NodeSource)
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - \
+    && sudo apt-get install -y nodejs \
+    && sudo rm -rf /var/lib/apt/lists/*
+
+# Install Claude Code CLI
+# RUN npm install -g @anthropic-ai/claude-code
 
 # Add local bin to PATH
 ENV PATH="/home/$USERNAME/.local/bin:$PATH"
@@ -96,8 +85,9 @@ RUN git --version \
     && tmux -V \
     && zsh --version \
     && stow --version \
-    && bun --version
-    # && bw --version
+    && bun --version \
+    && node --version \
+    && npm --version 
 
 # Set default shell to zsh
 SHELL ["/bin/zsh", "-c"]
