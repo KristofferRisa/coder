@@ -1,6 +1,6 @@
 # Dockerfile for Coder Development Environment
 # This image includes all dependencies pre-installed for fast workspace startup
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y \
     ripgrep \
     fd-find \
     fzf \
+    btop \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
 
