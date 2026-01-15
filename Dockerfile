@@ -35,8 +35,8 @@ ARG USERNAME=coder
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-RUN groupadd --gid $USER_GID $USERNAME \
-    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /bin/zsh \
+RUN groupadd --gid $USER_GID $USERNAME || true \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /bin/bash || usermod -s /bin/bash $USERNAME \
     # Add user to sudoers (if needed)
     && apt-get update \
     && apt-get install -y sudo \
@@ -57,7 +57,8 @@ RUN curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linu
 
 
 # Install Oh-My-Zsh (pre-installed for convenience)
-RUN sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+RUN sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
+    && sudo chsh -s /bin/zsh $USERNAME
 
 # Install Powerlevel10k theme (optional, remove if not needed)
 RUN git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
